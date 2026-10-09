@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>統合業務基幹システム v4.2.1 - 勤怠・就業管理モジュール</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===== STEALTH OVERLAY (F-02) ===== -->
+<div id="stealth-overlay">
+  <div class="stealth-toolbar">
+    <span class="st-bold">📊 Q4_売上予実管理_最終版_v3_本当の最終版_fix2.xlsx</span>
+    <span>— Microsoft Excel</span>
+    <span style="margin-left:auto;opacity:.6">ｶﾀｶﾀｶﾀ...</span>
+  </div>
+  <div class="stealth-ribbon">
+    <span>ファイル</span><span>ホーム</span><span>挿入</span>
+    <span>ページレイアウト</span><span>数式</span><span>データ</span>
+    <span>校閲</span><span>表示</span>
+    <span style="margin-left:auto;font-size:10px;color:#888">【スペース×2 で解除】</span>
+  </div>
+  <div class="stealth-sheet-wrap">
+    <table class="stealth-sheet" id="stealth-table"></table>
+  </div>
+  <div class="stealth-status">
+    <span>準備完了</span>
+    <span>🔢 合計: ¥847,392,100</span>
+    <span>平均: ¥12,348,720</span>
+    <span>データ数: 68</span>
+    <span style="margin-left:auto">Sheet1 | Sheet2 | 最終確認用 ⊕</span>
+  </div>
+</div>
+<div class="typing-sound-hint" id="typing-hint">ｶﾀｶﾀｶﾀ… チッ（忙しそう演出中）</div>
+
+<!-- ===== EXCUSE MODAL (F-01) ===== -->
+<div class="modal-backdrop" id="excuse-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4>🪄 AI言い訳錬金術 — 生成完了</h4>
+      <button class="modal-close" onclick="closeExcuseModal()">✕</button>
+    </div>
+    <div class="modal-body" id="excuse-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="generateExcuse()">🎲 別の言い訳を生成</button>
+      <button class="btn btn-primary" onclick="closeExcuseModal()">✅ これで行く！</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SLACK MODAL (F-03) ===== -->
+<div class="modal-backdrop" id="slack-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4>📨 バーチャル残業感 — 予約投稿設定</h4>
+      <button class="modal-close" onclick="document.getElementById('slack-modal').classList.remove('show')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">送信先チャンネル</label>
+        <select class="form-input">
+          <option>#general</option>
+          <option>#開発チーム</option>
+          <option>#営業部</option>
+          <option>#雑談</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">偽装送信時刻</label>
+        <select class="form-input" id="slack-time">
+          <option value="04:12">04:12（「もう仕事してた」感★★★★★）</option>
+          <option value="05:47">05:47（「朝型人間」感★★★★）</option>
+          <option value="23:58">23:58（「まだ働いてた」感★★★）</option>
+          <option value="03:33">03:33（「もしや廃人?」感★★）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">メッセージ文面</label>
+        <textarea class="form-input" id="slack-msg" rows="3">ふう、ひと段落…やっと本番環境が安定しました。あとは明日確認します💪</textarea>
+      </div>
+      <div style="background:#f8f9fa;border-radius:6px;padding:12px;font-size:12px;color:var(--text-light);">
+        ⚠️ 免責: このメッセージが「ヤバい人」として社内で話題になっても弊システムは責任を負いません。
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('slack-modal').classList.remove('show')">キャンセル</button>
+      <button class="btn btn-primary" onclick="scheduleSlack()">📅 予約投稿を設定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOP BAR ===== -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">
+      <span class="logo-icon">💨</span>
+      <span class="logo-text">シュッ! <span style="font-size:11px;font-weight:400;opacity:.7">Syut! Enterprise v2.4.1</span></span>
+    </div>
+  </div>
+  <div class="topbar-center">
+    <div class="search-bar">
+      <span>🔍</span>
+      <input type="text" placeholder="機能を検索… (例:「言い訳」「逃げ道」「ごまかし」)" id="search-input" />
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="clock-widget" id="clock-widget">
+      <span class="clock-time" id="clock-time">--:--:--</span>
+      <span class="clock-label" id="clock-label">定時まで計算中...</span>
+    </div>
+    <button class="btn btn-danger" onclick="activateStealth()" title="スペース×2 でも発動">
+      🥷 ステルス発動
+    </button>
+  </div>
+</div>
+
+<!-- ===== LAYOUT ===== -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <nav>
+      <div class="nav-section-title">メインメニュー</div>
+      <a class="nav-item active" href="#" onclick="showSection('dashboard',this)">
+        <span class="nav-icon">🏠</span> ダッシュボード
+      </a>
+      <a class="nav-item" href="#" onclick="showSection('excuse',this)">
+        <span class="nav-icon">🪄</span> AI言い訳錬金術
+      </a>
+      <a class="nav-item" href="#" onclick="showSection('stealth-section',this)">
+        <span class="nav-icon">🥷</span> ステルス迷彩
+      </a>
+      <a class="nav-item" href="#" onclick="showSection('alibi',this)">
+        <span class="nav-icon">📨</span> アリバイ工作
+      </a>
+      <a class="nav-item" href="#" onclick="showSection('radar',this)">
+        <span class="nav-icon">📡</span> 脱出ルートナビ
+      </a>
+
+      <div class="nav-section-title" style="margin-top:16px;">分析・レポート</div>
+      <a class="nav-item" href="#" onclick="showSection('stats',this)">
+        <span class="nav-icon">📊</span> 残業回避実績
+      </a>
+      <a class="nav-item" href="#" onclick="showSection('settings',this)">
+        <span class="nav-icon">⚙️</span> システム設定
+      </a>
+
+      <div style="margin-top:auto;padding:12px 8px 0;border-top:1px solid var(--border);margin-top:24px;">
+        <div style="font-size:11px;color:var(--text-light);text-align:center;line-height:1.6;">
+          <div>📍 現在地: <strong>オフィス</strong></div>
+          <div>🎯 目標地: <strong>自宅ソファ</strong></div>
+          <div style="margin-top:6px;" id="sidebar-progress-label">距離: 計算中...</div>
+          <div class="progress-bar" style="margin-top:6px;">
+            <div class="progress-fill" id="sidebar-progress" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div id="section-dashboard" class="section active">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">定時退社支援ダッシュボード</h1>
+          <p class="page-subtitle">本日も定時退社という崇高な目標に向けて、全システムが稼働中です。</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="showSection('stats',document.querySelector('.nav-item:nth-child(7)'))">📊 実績を見る</button>
+          <button class="btn btn-primary" onclick="showSection('excuse',document.querySelectorAll('.nav-item')[1])">🪄 言い訳を生成</button>
+        </div>
+      </div>
+
+      <!-- KPI CARDS -->
+      <div class="grid-4">
+        <div class="card kpi-card">
+          <div class="kpi-label">今日の定時まで</div>
+          <div class="kpi-value" id="kpi-countdown">--:--</div>
+          <div class="kpi-sub" id="kpi-sub">計算中...</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="kpi-label">今月の定時退社率</div>
+          <div class="kpi-value success" id="kpi-rate">0%</div>
+          <div class="kpi-sub" id="kpi-rate-sub">目標: 100%</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="kpi-label">生成した言い訳</div>
+          <div class="kpi-value" id="kpi-excuses">0</div>
+          <div class="kpi-sub">本（累計）</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="kpi-label">ステルス発動回数</div>
+          <div class="kpi-value danger" id="kpi-stealth">0</div>
+          <div class="kpi-sub">回（本日）</div>
+        </div>
+      </div>
+
+      <!-- ALERT BANNER -->
+      <div class="alert-banner" id="alert-banner" style="display:none;"></div>
+
+      <!-- MIDDLE GRID -->
+      <div class="grid-2">
+        <!-- 上司機嫌メーター -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">👔 上司機嫌リアルタイムモニター</span>
+            <button class="btn btn-ghost btn-sm" onclick="randomizeMood()">🔄 更新</button>
+          </div>
+          <div class="card-body">
+            <div id="mood-display" style="text-align:center;padding:12px 0;">
+              <div style="font-size:56px;line-height:1;" id="mood-emoji">😐</div>
+              <div style="font-size:16px;font-weight:700;margin:8px 0 4px;" id="mood-label">普通</div>
+              <div style="font-size:12px;color:var(--text-light);" id="mood-desc">特に問題なし。普通に「お先に失礼します」で行けます。</div>
+              <div style="margin-top:12px;">
+                <div class="progress-bar" style="height:10px;">
+                  <div class="progress-fill" id="mood-bar" style="width:50%;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-light);margin-top:4px;">
+                  <span>激怒😡</span><span>良好😊</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:8px;">
+              <button class="btn btn-ghost btn-sm" onclick="setMood(0)">😡 激怒</button>
+              <button class="btn btn-ghost btn-sm" onclick="setMood(50)">😐 普通</button>
+              <button class="btn btn-ghost btn-sm" onclick="setMood(80)">🌀 虚無</button>
+              <button class="btn btn-ghost btn-sm" onclick="setMood(100)">😊 良好</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 本日のステータス -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">⚡ 本日の退社作戦ステータス</span>
+          </div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div class="flex-center gap-8">
+                <span id="status-excuse-icon">⬜</span>
+                <div style="flex:1;">
+                  <div style="font-size:12px;font-weight:700;">言い訳を生成する</div>
+                  <div style="font-size:11px;color:var(--text-light);">F-01 言い訳錬金術を実行</div>
+                </div>
+                <span class="tag gray" id="status-excuse-tag">未完了</span>
+              </div>
+              <div class="flex-center gap-8">
+                <span id="status-route-icon">⬜</span>
+                <div style="flex:1;">
+                  <div style="font-size:12px;font-weight:700;">脱出ルートを確認する</div>
+                  <div style="font-size:11px;color:var(--text-light);">F-04 ナビゲーションを開く</div>
+                </div>
+                <span class="tag gray" id="status-route-tag">未完了</span>
+              </div>
+              <div class="flex-center gap-8">
+                <span id="status-alibi-icon">⬜</span>
+                <div style="flex:1;">
+                  <div style="font-size:12px;font-weight:700;">アリバイを設定する</div>
+                  <div style="font-size:11px;color:var(--text-light);">F-03 予約投稿を設定</div>
+                </div>
+                <span class="tag gray" id="status-alibi-tag">未完了</span>
+              </div>
+              <div class="flex-center gap-8">
+                <span>🚀</span>
+                <div style="flex:1;">
+                  <div style="font-size:12px;font-weight:700;">定時退社を実行！</div>
+                  <div style="font-size:11px;color:var(--text-light);">全ての準備が整ったら出撃</div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="executeEscape()">🏃 出撃！</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM GRID -->
+      <div class="grid-3">
+        <!-- クイックアクション -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">⚡ クイックアクション</span></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:8px;">
+            <button class="btn btn-primary w-full" onclick="showSection('excuse',null);generateExcuse()">🪄 今すぐ言い訳生成</button>
+            <button class="btn btn-ghost w-full" onclick="activateStealth()">🥷 ステルスモード発動</button>
+            <button class="btn btn-ghost w-full" onclick="showSection('radar',null);startRadar()">📡 脱出ルート計算</button>
+            <button class="btn btn-ghost w-full" onclick="showSection('alibi',null)">📨 アリバイ工作</button>
+          </div>
+        </div>
+
+        <!-- 格言 -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📜 本日の退社格言</span>
+            <button class="btn btn-ghost btn-sm" onclick="newQuote()">🔄</button>
+          </div>
+          <div class="card-body" style="text-align:center;padding:16px 12px;">
+            <div style="font-size:28px;margin-bottom:12px;" id="quote-emoji">💡</div>
+            <div style="font-size:14px;font-weight:700;line-height:1.6;color:var(--secondary);" id="quote-text">「帰ることは逃げることではない。翌日また戦うための、戦略的撤退である。」</div>
+            <div style="font-size:11px;color:var(--text-light);margin-top:10px;" id="quote-author">— 某外資系コンサルタント（実在しない）</div>
+          </div>
+        </div>
+
+        <!-- 天気・交通 -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">🌤 退社環境情報</span></div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+              <div class="flex-center gap-8">
+                <span style="font-size:20px;" id="weather-icon">☀️</span>
+                <div>
+                  <div style="font-weight:700;" id="weather-text">晴れ、最高の退社日和</div>
+                  <div style="color:var(--text-light);">傘不要・帰宅快適指数: 97%</div>
+                </div>
+              </div>
+              <div style="border-top:1px solid var(--border);padding-top:8px;">
+                <div class="flex-center gap-8 mb-8">
+                  <span>🚃</span><span>電車: <strong style="color:var(--success);">平常運転</strong>（逃げ遅れる理由なし）</span>
+                </div>
+                <div class="flex-center gap-8">
+                  <span>🚇</span><span>最終退社推奨電車: <strong id="last-train">17:58発</strong></span>
+                </div>
+              </div>
+              <div style="border-top:1px solid var(--border);padding-top:8px;color:var(--text-light);">
+                ※情報はシステムが適当に生成しています。実際の天気は窓を見てください。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== F-01: AI言い訳錬金術 ===== -->
+    <div id="section-excuse" class="section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">🪄 AI言い訳錬金術</h1>
+          <p class="page-subtitle">パラメータを入力し、最適な退社理由をAIが錬成します。</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-title">⚙️ 入力パラメータ</span></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">上司の現在機嫌 <span style="color:var(--danger);">*</span></label>
+              <select class="form-input" id="exc-mood">
+                <option value="furious">😡 激怒（地雷原モード）</option>
+                <option value="normal" selected>😐 普通（標準モード）</option>
+                <option value="void">🌀 虚無（魂がぬけてる）</option>
+                <option value="good">😊 良好（今がチャンス！）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">自分のHP <span class="text-muted">（現在の体力）</span></label>
+              <div class="flex-center gap-8">
+                <input type="range" min="0" max="100" value="60" id="exc-hp" style="flex:1;" oninput="document.getElementById('exc-hp-val').textContent=this.value+'%'">
+                <span id="exc-hp-val" style="font-weight:700;min-width:36px;">60%</span>
+              </div>
+              <div style="font-size:11px;color:var(--text-light);margin-top:4px;" id="exc-hp-label">まあまあ元気。普通の言い訳で十分。</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">言い訳モード</label>
+              <select class="form-input" id="exc-mode">
+                <option value="family">🏠 家庭円満モード</option>
+                <option value="health">😷 体調不良（微粒子）モード</option>
+                <option value="dimension">🌌 異次元モード</option>
+                <option value="random">🎲 AIおまかせモード</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">社内カースト（自己申告）</label>
+              <select class="form-input" id="exc-caste">
+                <option value="new">🐣 新卒1〜2年目（なんでも許される）</option>
+                <option value="mid" selected>💼 中堅（そこそこ信頼される）</option>
+                <option value="senior">👴 ベテラン（言ったもん勝ち）</option>
+                <option value="manager">👔 管理職（理由不要）</option>
+              </select>
+            </div>
+            <button class="btn btn-primary w-full" style="margin-top:8px;" onclick="generateExcuse()">
+              🪄 言い訳を錬成する（0.8秒以内保証）
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">✨ 生成結果</span>
+            <span class="tag green" id="exc-quality-tag" style="display:none;">品質: AAA</span>
+          </div>
+          <div class="card-body" id="exc-result-area">
+            <div style="text-align:center;padding:40px 20px;color:var(--text-light);">
+              <div style="font-size:48px;margin-bottom:12px;">🧪</div>
+              <div>パラメータを設定して「錬成する」ボタンを押してください</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0;">
+        <div class="card-header"><span class="card-title">📚 言い訳アーカイブ（直近10件）</span></div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>生成日時</th>
+                <th>モード</th>
+                <th>言い訳内容</th>
+                <th>品質スコア</th>
+                <th>使用状況</th>
+              </tr>
+            </thead>
+            <tbody id="excuse-archive"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== F-02: ステルス迷彩 ===== -->
+    <div id="section-stealth-section" class="section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">🥷 ステルス迷彩システム</h1>
+          <p class="page-subtitle">上司が近づいた瞬間、業務基幹システムに偽装します。</p>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-title">⚙️ ステルス設定<overlap>
+        <div class="card">
+          <div class="card-header"><span class="card-title">⚙️ ステルス設定
+</overlap>
+
+<continue>
+</span></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">ステルスモード種別</label>
+              <select class="form-input" id="stealth-mode-select">
+                <option value="excel">📊 超複雑スプレッドシート（Excel迷彩）</option>
+                <option value="erp">🏢 基幹ERPシステム（SAP迷彩）</option>
+                <option value="nikkei">📰 日経電子版（社長検知時専用）</option>
+                <option value="code">💻 IDEコード画面（エンジニア用）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">発動キー設定</label>
+              <div style="background:var(--bg-secondary);border-radius:6px;padding:12px;font-size:13px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                  <span>🥷 ステルス発動</span>
+                  <kbd style="background:#333;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;">Space × 2</kbd>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                  <span>🔓 解除（元に戻す）</span>
+                  <kbd style="background:#333;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;">Esc</kbd>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span>🚨 社長検知モード</span>
+                  <kbd style="background:#c00;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;">Alt + S</kbd>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">音響偽装設定</label>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                  <input type="checkbox" id="sound-typing" checked style="width:16px;height:16px;">
+                  <span>⌨️ 高速タイピング音を再生（多忙感の演出）</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                  <input type="checkbox" id="sound-sigh" checked style="width:16px;height:16px;">
+                  <span>😤 深刻な舌打ち音を微量再生（真剣感の演出）</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                  <input type="checkbox" id="sound-phone" style="width:16px;height:16px;">
+                  <span>📞 電話保留音を遠くから再生（交渉中感の演出）</span>
+                </label>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="btn btn-primary" style="flex:1;" onclick="activateStealth()">🥷 今すぐ発動テスト</button>
+              <button class="btn btn-secondary" style="flex:1;" onclick="deactivateStealth()">🔓 解除</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">📡 上司接近レーダー</span></div>
+          <div class="card-body">
+            <div style="text-align:center;margin-bottom:16px;">
+              <div id="radar-display" style="width:180px;height:180px;border-radius:50%;border:3px solid var(--accent-green);background:radial-gradient(circle,#0a2a0a,#041504);margin:0 auto;position:relative;overflow:hidden;">
+                <div id="radar-sweep" style="position:absolute;top:0;left:0;width:100%;height:100%;background:conic-gradient(from 0deg, transparent 0deg, rgba(0,255,0,0.3) 30deg, transparent 31deg);animation:radarSweep 3s linear infinite;transform-origin:center;"></div>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:var(--accent-green);"></div>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border-radius:50%;border:1px solid rgba(0,255,0,0.3);"></div>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:120px;height:120px;border-radius:50%;border:1px solid rgba(0,255,0,0.3);"></div>
+                <div id="boss-blip" style="position:absolute;width:10px;height:10px;border-radius:50%;background:#ff4444;box-shadow:0 0 8px #ff4444;display:none;"></div>
+                <div id="safe-blip" style="position:absolute;width:8px;height:8px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px var(--accent-green);top:30%;left:45%;"></div>
+              </div>
+              <div id="radar-status" style="margin-top:12px;font-size:13px;color:var(--accent-green);">● 安全地帯確認中...</div>
+            </div>
+            <div style="background:var(--bg-secondary);border-radius:8px;padding:12px;">
+              <div style="font-size:12px;color:var(--text-light);margin-bottom:8px;">📋 脅威レベル判定</div>
+              <div id="threat-list" style="display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+                  <span>部長の機嫌</span>
+                  <span class="tag green">良好 😊</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+                  <span>直属上司の存在</span>
+                  <span class="tag yellow">在席中 😐</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+                  <span>よく絡んでくる先輩</span>
+                  <span class="tag red">接近中 😱</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+                  <span>総合危険度</span>
+                  <span class="tag yellow" id="overall-threat">中程度 ⚠️</span>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-secondary w-full" style="margin-top:12px;" onclick="runRadarScan()">🔄 スキャン実行</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ステルスオーバーレイ -->
+      <div id="stealth-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:#fff;overflow:auto;">
+        <div id="stealth-content"></div>
+        <button onclick="deactivateStealth()" style="position:fixed;bottom:20px;right:20px;background:#0070d2;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px;opacity:0.3;" title="Escキーでも解除可">解除</button>
+      </div>
+    </div>
+
+    <!-- ===== F-03: アリバイ工作 ===== -->
+    <div id="section-alibi-section" class="section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">👻 アリバイ工作システム</h1>
+          <p class="page-subtitle">「早く帰った感」を消し去る心理的目眩まし機能。</p>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-title">📨 Slack予約投稿ジェネレーター</span></div>
+          <div class="card-body">
+            <div style="background:var(--accent-yellow);background:linear-gradient(135deg,#ff6b35,#f7c59f);border-radius:8px;padding:12px;margin-bottom:16px;color:#333;">
+              <div style="font-size:12px;font-weight:700;margin-bottom:4px;">⚠️ 法務確認済み免責事項</div>
+              <div style="font-size:11px;">本機能は「あくまでネタ」として提供されます。実際の業務場での虚偽報告は自己責任でお願いします（開発チームは定時で退社しました）。</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">送信予約時刻（深夜帯推奨）</label>
+              <select class="form-input" id="alibi-time">
+                <option value="04:12">🌙 04:12 AM（廃人感MAX）</option>
+                <option value="03:33">👻 03:33 AM（心霊的な時刻）</option>
+                <option value="23:58">🦉 23:58 PM（終電後ギリギリ感）</option>
+                <option value="22:30">💼 22:30 PM（普通の残業感）</option>
+                <option value="custom">⌛ カスタム時刻</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">メッセージテンプレート</label>
+              <select class="form-input" id="alibi-template" onchange="updateAlibiMessage()">
+                <option value="hito">「ふう、ひと段落…（推奨）」</option>
+                <option value="coffee">「コーヒー飲んで再開します☕」</option>
+                <option value="issue">「このバグ、原因わかりました。明日共有します」</option>
+                <option value="doc">「資料、仕上げました。確認お願いします🙏」</option>
+                <option value="custom2">カスタムメッセージ</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">メッセージ内容（編集可）</label>
+              <textarea class="form-input" id="alibi-message" rows="3" style="resize:vertical;">ふう、ひと段落…</textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">送信チャンネル</label>
+              <select class="form-input" id="alibi-channel">
+                <option value="general">#general（全体に見せびらかす）</option>
+                <option value="team">#チーム名（チーム限定アピール）</option>
+                <option value="boss">@上司（直接ダイレクトメッセージ）</option>
+              </select>
+            </div>
+            <button class="btn btn-primary w-full" onclick="scheduleAlibi()">📅 予約投稿を仕込む</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">🧥 ARカーディガン投影システム</span></div>
+          <div class="card-body">
+            <div style="background:var(--bg-secondary);border-radius:8px;padding:16px;margin-bottom:16px;text-align:center;">
+              <div style="font-size:48px;margin-bottom:8px;" id="cardigan-emoji">🪑</div>
+              <div style="font-size:14px;color:var(--text-light);" id="cardigan-status">待機中…</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">カーディガンの色</label>
+              <select class="form-input" id="cardigan-color">
+                <option value="gray">⬜ グレー（無難・王道）</option>
+                <option value="navy">🟦 ネイビー（できる人感）</option>
+                <option value="beige">🟫 ベージュ（おしゃれ感）</option>
+                <option value="black">⬛ 黒（謎のオーラ感）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">追加小道具</label>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                  <input type="checkbox" id="prop-mug" checked style="width:16px;height:16px;">
+                  <span>☕ 半分入ったコーヒーマグ（席を離れた感）</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                  <input type="checkbox" id="prop-notebook" checked style="width:16px;height:16px;">
+                  <span>📓 開きっぱなしの手帳（忙しそう感）</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                  <input type="checkbox" id="prop-phone" style="width:16px;height:16px;">
+                  <span>📱 画面が光っているスマホ（重要連絡待ち感）</span>
+                </label>
+              </div>
+            </div>
+            <button class="btn btn-primary w-full" onclick="deployCardigan()">🚀 カーディガンを展開する</button>
+            <button class="btn btn-secondary w-full" style="margin-top:8px;" onclick="recallCardigan()">📦 回収する（翌朝）</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0;">
+        <div class="card-header"><span class="card-title">📋 予約投稿スケジュール</span></div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead>
+              <tr><th>予約ID</th><th>送信予定時刻</th><th>チャンネル</th><th>メッセージ（抜粋）</th><th>ステータス</th><th>操作</th></tr>
+            </thead>
+            <tbody id="alibi-schedule-list">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-light);padding:24px;">予約投稿はまだありません</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== F-04: 脱出ルート ===== -->
+    <div id="section-escape-section" class="section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">🗺️ 脱出ルート最適化ナビ</h1>
+          <p class="page-subtitle">捕獲リスクを可視化し、最短脱出経路を算出します。</p>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-title">⚠️ 脅威マップ設定</span></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">自分の席の位置</label>
+              <select class="form-input" id="my-position">
+                <option value="window">🪟 窓際（眺めは良いが逃げにくい）</option>
+                <option value="aisle">🚶 通路沿い（逃げやすいが見られやすい）</option>
+                <option value="corner">📐 コーナー（隠れやすいが追い詰められやすい）</option>
+                <option value="center">🎯 フロア中央（最大被視認性・地獄）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">脅威リスト（チェックがある人物が在席）</label>
+              <div style="display:flex;flex-direction:column;gap:8px;" id="threat-checklist">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px;border-radius:4px;background:rgba(255,68,68,0.1);">
+                  <input type="checkbox" id="threat-boss" style="width:16px;height:16px;">
+                  <span>👔 直属上司（仕事を振ってくる確率: 85%）</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px;border-radius:4px;background:rgba(255,165,0,0.1);">
+                  <input type="checkbox" id="threat-senior" checked style="width:16px;height:16px;">
+                  <span>👴 よく絡む先輩（無駄話確率: 92%）</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px;border-radius:4px;background:rgba(255,68,68,0.1);">
+                  <input type="checkbox" id="threat-president" style="width:16px;height:16px;">
+                  <span>👑 社長・役員（発動条件: 日経強制リダイレクト）</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px;border-radius:4px;background:rgba(255,165,0,0.1);">
+                  <input type="checkbox" id="threat-colleague" style="width:16px;height:16px;">
+                  <span>🙋 頼んでくる同僚（頼まれ案件確率: 70%）</span>
+                </label>
+              </div>
+            </div>
+            <button class="btn btn-primary w-full" onclick="calculateEscapeRoute()">🧭 最適ルートを算出する</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🗺️ 脱出マップ</span>
+            <span class="tag" id="route-safety-tag" style="display:none;">安全度: 計算中</span>
+          </div>
+          <div class="card-body">
+            <canvas id="escape-map" width="400" height="320" style="width:100%;border-radius:8px;background:#0d1b2a;cursor:crosshair;"></canvas>
+            <div id="escape-instructions" style="margin-top:12px;background:var(--bg-secondary);border-radius:8px;padding:12px;font-size:13px;color:var(--text-light);text-align:center;">
+              「最適ルートを算出する」ボタンを押してください
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0;">
+        <div class="card-header"><span class="card-title">📊 脱出成功率シミュレーション</span></div>
+        <div class="card-body">
+          <div class="grid-4" style="margin-bottom:16px;">
+            <div class="metric-card">
+              <div class="metric-value" id="escape-rate">-</div>
+              <div class="metric-label">脱出成功率</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="escape-time">-</div>
+              <div class="metric-label">推定所要時間</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="capture-risk">-</div>
+              <div class="metric-label">捕獲リスク</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="route-grade">-</div>
+              <div class="metric-label">ルートグレード</div>
+            </div>
+          </div>
+          <div id="escape-log" style="background:#0d1b2a;border-radius:8px;padding:12px;font-family:monospace;font-size:12px;color:#00ff41;min-height:80px;max-height:160px;overflow-y:auto;white-space:pre-wrap;">
+> システム待機中...脅威マップを設定してください
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 設定 ===== -->
+    <div id="section-settings-section" class="section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">⚙️ システム設定</h1>
+          <p class="page-subtitle">シュッ！の動作パラメータを細かく調整できます。</p>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-title">🕐 定時設定</span></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">定時時刻</label>
+              <input type="time" class="form-input" id="settings-teiji" value="18:00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ダッシュ許容ラグ（ミリ秒）</label>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <input type="range" min="50" max="500" value="100" id="settings-lag" style="flex:1;" oninput="document.getElementById('settings-lag-val').textContent=this.value+'ms'">
+                <span id="settings-lag-val" style="font-weight:700;min-width:50px;">100ms</span>
+              </div>
+              <div style="font-size:11px;color:var(--text-light);margin-top:4px;">要件定義書の規定値: 100ms以内</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">退勤前アラート（定時何分前）</label>
+              <select class="form-input" id="settings-alert">
+                <option value="30">30分前（余裕の準備）</option>
+                <option value="15" selected>15分前（標準）</option>
+                <option value="5">5分前（ギリギリ派）</option>
+                <option value="1">1分前（スリル派）</option>
+              </select>
+            </div>
+            <button class="btn btn-primary w-full" onclick="saveSettings()">💾 設定を保存</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">🔒 セキュリティ設定</span></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">社長検知レベル</label>
+              <select class="form-input" id="settings-president-detect">
+                <option value="high">🔴 最高警戒（ゴルフ話の単語1語で発動）</option>
+                <option value="mid" selected>🟡 標準（名前呼び捨て検知）</option>
+                <option value="low">🟢 低（姿が見えてから発動）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">履歴消去タイミング</label>
+              <select class="form-input" id="settings-history">
+                <option value="logout">ログアウト時（標準）</option>
+                <option value="daily">毎日深夜0時</option>
+                <option value="instant">即時消去（証拠隠滅モード）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">緊急ステルス解除パスコード</label>
+              <input type="password" class="form-input" id="settings-passcode" placeholder="数字4桁（上司に見られたとき用）" maxlength="4">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="btn btn-danger" style="flex:1;" onclick="clearAllData()">🗑️ 全データ消去</button>
+              <button class="btn btn-secondary" style="flex:1;" onclick="exportData()">📤 データ書き出し</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0;">
+        <div class="card-header"><span class="card-title">📜 免責事項・ライセンス</span></div>
+        <div class="card-body" style="font-size:13px;color:var(--text-light);line-height:1.8;">
+          <p>本システム『シュッ！(Syut!)』は、<strong style="color:var(--text-primary);">DOC-202X-TEIJI-001</strong>に基づき開発されました。</p>
+          <p>本システムの利用により発生した以下の事態について、開発チームは一切の責任を負いません：</p>
+          <ul style="margin:8px 0 8px 20px;">
+            <li>「あいつ、最近付き合い悪いよね」と給湯室で噂された場合</li>
+            <li>浮いた時間で副業を始め、さらに忙しくなる「本末転倒バグ」（仕様です）</li>
+            <li>定時退社が習慣化し、職場で「謎の人物」扱いされた場合</li>
+            <li>言い訳が上手くなりすぎて、プロの詐欺師と間違われた場合</li>
+          </ul>
+          <p style="margin-top:12px;padding:8px;background:var(--bg-secondary);border-radius:6px;font-style:italic;">
+            「残業は美徳」という幻想から、全ての労働者を解放することを、我々は諦めない。<br>
+            <strong style="color:var(--accent-green);">— 開発チーム一同（全員定時退社済）</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- トースト通知 -->
+<div id="toast-container" style="position:fixed;top:20px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:8px;"></div>
+
+<!-- ステルス発動中インジケーター -->
+<div id="stealth-indicator" style="display:none;position:fixed;bottom:20px;left:20px;z-index:10000;background:#1a1a2e;color:#00ff41;padding:8px 14px;border-radius:20px;font-size:12px;font-family:monospace;border:1px solid #00ff41;animation:pulse 2s infinite;">
+  🥷 STEALTH MODE ACTIVE
+</div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
